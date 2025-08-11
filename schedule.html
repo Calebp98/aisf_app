@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conference Schedule</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background-color: white;
+            color: black;
+            line-height: 1.4;
+            padding: 16px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+            border-bottom: 1px solid black;
+            padding-bottom: 16px;
+        }
+
+        .schedule-container {
+            max-width: 100%;
+        }
+
+        .time-slot {
+            margin-bottom: 24px;
+            border: 1px solid black;
+            padding: 12px;
+        }
+
+        .time-header {
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .session {
+            margin-bottom: 12px;
+            padding: 8px;
+            border: 1px solid black;
+            cursor: pointer;
+        }
+
+        .session:last-child {
+            margin-bottom: 0;
+        }
+
+        .session-title {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .session-description {
+            margin-top: 8px;
+            display: none;
+        }
+
+        .session.expanded .session-description {
+            display: block;
+        }
+
+        .filters-container {
+            margin-bottom: 12px;
+        }
+
+        .filters-toggle {
+            padding: 8px 12px;
+            border: 1px solid black;
+            background: white;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .filters-toggle:after {
+            content: "▼";
+            float: right;
+            font-size: 0.8em;
+            transition: transform 0.2s;
+        }
+
+        .filters-toggle.expanded:after {
+            transform: rotate(180deg);
+        }
+
+        .filters-content {
+            display: none;
+            padding-bottom: 12px;
+            border-bottom: 1px solid black;
+            margin-bottom: 12px;
+        }
+
+        .filters-content.show {
+            display: block;
+        }
+
+        .filter-section {
+            margin-bottom: 16px;
+        }
+
+        .filter-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .filter-label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .filter-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .filter-checkbox {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 4px 8px;
+            border: 1px solid black;
+            background: white;
+            font-size: 0.8em;
+        }
+
+        .filter-checkbox input[type="checkbox"] {
+            margin-right: 6px;
+        }
+
+        .filter-checkbox.selected {
+            background: black;
+            color: white;
+        }
+
+        .floating-action {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            background: black;
+            color: white;
+            border: 1px solid black;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid black;
+            display: flex;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            border-right: 1px solid black;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .nav-tab:last-child {
+            border-right: none;
+        }
+
+        .nav-tab.active {
+            background: black;
+            color: white;
+        }
+
+        .chat-container {
+            display: none;
+            padding-bottom: 60px;
+        }
+
+        .chat-container.active {
+            display: block;
+        }
+
+        .schedule-container.active {
+            display: block;
+            padding-bottom: 60px;
+        }
+
+        .schedule-container:not(.active) {
+            display: none;
+        }
+
+        .chat-messages {
+            max-height: 60vh;
+            overflow-y: auto;
+            margin-bottom: 16px;
+            border: 1px solid black;
+            padding: 12px;
+        }
+
+        .message {
+            margin-bottom: 12px;
+            padding: 8px;
+            border: 1px solid black;
+        }
+
+        .message-sender {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .message-time {
+            font-size: 0.8em;
+            margin-top: 4px;
+        }
+
+        .chat-input-area {
+            position: fixed;
+            bottom: 60px;
+            left: 16px;
+            right: 16px;
+            background: white;
+            border: 1px solid black;
+            padding: 8px;
+            display: none;
+        }
+
+        .chat-input-area.active {
+            display: block;
+        }
+
+        .chat-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid black;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: white;
+            color: black;
+        }
+
+        .channel-list {
+            margin-bottom: 16px;
+            border: 1px solid black;
+            padding: 12px;
+        }
+
+        .channel {
+            padding: 4px 8px;
+            margin-bottom: 4px;
+            border: 1px solid black;
+            cursor: pointer;
+        }
+
+        .channel.active {
+            background: black;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>TechConnect 2024</h1>
+        <div class="date">March 15, 2024 • Innovation Hub</div>
+    </div>
+
+    <div class="filters-container">
+        <div class="filters-toggle" onclick="toggleFilters()">
+            Filters
+        </div>
+        <div class="filters-content" id="filters-content">
+            <div class="filter-section">
+                <div class="filter-label">Session Type:</div>
+                <div class="filter-options">
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="type" value="keynote" checked>
+                        Keynotes
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="type" value="workshop" checked>
+                        Workshops
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="type" value="talk" checked>
+                        Talks
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="type" value="panel" checked>
+                        Panels
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="type" value="presentation" checked>
+                        Presentations
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="type" value="networking" checked>
+                        Networking
+                    </label>
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <div class="filter-label">Track:</div>
+                <div class="filter-options">
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="track" value="keynote" checked>
+                        Keynotes
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="track" value="ai-tech" checked>
+                        AI & Technology
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="track" value="mobile-dev" checked>
+                        Mobile Development
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="track" value="cloud-arch" checked>
+                        Cloud Architecture
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="track" value="ux-design" checked>
+                        UX Design
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="track" value="networking" checked>
+                        Networking
+                    </label>
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <div class="filter-label">Room:</div>
+                <div class="filter-options">
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="room" value="main-auditorium" checked>
+                        Main Auditorium
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="room" value="workshop-a" checked>
+                        Workshop Room A
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="room" value="conference-b" checked>
+                        Conference Room B
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="room" value="main-lobby" checked>
+                        Main Lobby
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="room" value="garden-terrace" checked>
+                        Garden Terrace
+                    </label>
+                    <label class="filter-checkbox">
+                        <input type="checkbox" data-filter="room" value="rooftop-terrace" checked>
+                        Rooftop Terrace
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="schedule-container active">
+        <div class="time-slot">
+            <div class="time-header">
+                <div class="time">8:00 AM - 9:00 AM</div>
+            </div>
+            <div class="session break" data-track="networking" data-type="networking" data-room="main-lobby">
+                <div class="session-title">Registration & Welcome Coffee</div>
+                <div class="session-location">Main Lobby</div>
+                <span class="tag networking">Networking</span>
+            </div>
+        </div>
+
+        <div class="time-slot">
+            <div class="time-header">
+                <div class="time">9:00 AM - 10:00 AM <span class="now-indicator">NOW</span></div>
+            </div>
+            <div class="session keynote" data-track="keynote" data-type="keynote" data-room="main-auditorium">
+                <div class="session-title">Opening Keynote: The Future of Digital Innovation</div>
+                <div class="session-speaker">Dr. Sarah Chen, CTO at InnovateFirst</div>
+                <div class="session-duration">60 min</div>
+                <div class="session-location">Main Auditorium</div>
+                <div class="session-description">Join Dr. Chen as she explores emerging technologies and their impact on business transformation in the next decade.</div>
+                <span class="tag keynote">Keynote</span>
+            </div>
+        </div>
+
+        <div class="time-slot">
+            <div class="time-header">
+                <div class="time">10:15 AM - 11:15 AM</div>
+            </div>
+            <div class="session workshop" data-track="ai-tech" data-type="workshop" data-room="workshop-a">
+                <div class="session-title">AI-Powered Product Development</div>
+                <div class="session-speaker">Marcus Rodriguez, Head of AI</div>
+                <div class="session-duration">60 min</div>
+                <div class="session-location">Workshop Room A</div>
+                <div class="session-description">Hands-on workshop covering machine learning integration in modern product development workflows.</div>
+                <span class="tag workshop">Workshop</span>
+            </div>
+            <div class="session" data-track="mobile-dev" data-type="workshop" data-room="conference-b">
+                <div class="session-title">Building Scalable Mobile Apps</div>
+                <div class="session-speaker">Jessica Kim, Senior Mobile Engineer</div>
+                <div class="session-duration">60 min</div>
+                <div class="session-location">Conference Room B</div>
+                <div class="session-description">Best practices for creating mobile applications that can handle millions of users.</div>
+                <span class="tag workshop">Workshop</span>
+            </div>
+        </div>
+
+        <div class="time-slot">
+            <div class="time-header">
+                <div class="time">11:30 AM - 12:30 PM</div>
+            </div>
+            <div class="session" data-track="keynote" data-type="panel" data-room="main-auditorium">
+                <div class="session-title">Panel: The Evolution of Remote Work</div>
+                <div class="session-speaker">Various Industry Leaders</div>
+                <div class="session-duration">60 min</div>
+                <div class="session-location">Main Auditorium</div>
+                <div class="session-description">A discussion on how remote work has changed business operations and team dynamics.</div>
+            </div>
+        </div>
+
+        <div class="time-slot">
+            <div class="time-header">
+                <div class="time">12:30 PM - 1:30 PM</div>
+            </div>
+            <div class="session break" data-track="networking" data-type="networking" data-room="garden-terrace">
+                <div class="session-title">Networking Lunch</div>
+                <div class="session-location">Garden Terrace</div>
+                <span class="tag networking">Networking</span>
+            </div>
+        </div>
+
+        <div class="time-slot">
+            <div class="time-header">
+                <div class="time">1:30 PM - 2:30 PM</div>
+            </div>
+            <div class="session keynote" data-track="keynote" data-type="keynote" data-room="main-auditorium">
+                <div class="session-title">Sustainable Technology: Building for Tomorrow</div>
+                <div class="session-speaker">Dr. Ahmed Hassan, Environmental Tech Researcher</div>
+                <div class="session-duration">60 min</div>
+                <div class="session-location">Main Auditorium</div>
+                <div class="session-description">Exploring how technology companies can reduce their environmental impact while scaling innovation.</div>
+                <span class="tag keynote">Keynote</span>
+            </div>
+        </div>
+
+        <div class="time-slot">
+            <div class="time-header">
+                <div class="time">2:45 PM - 3:45 PM</div>
+            </div>
+            <div class="session workshop" data-track="cloud-arch" data-type="workshop" data-room="workshop-a">
+                <div class="session-title">Advanced Cloud Architecture Patterns</div>
+                <div class="session-speaker">Robert Chen, Cloud Solutions Architect</div>
+                <div class="session-duration">60 min</div>
+                <div class="session-location">Workshop Room A</div>
+                <div class="session-description">Deep dive into modern cloud design patterns for high-availability systems.</div>
+                <span class="tag workshop">Workshop</span>
+            </div>
+            <div class="session" data-track="ux-design" data-type="talk" data-room="conference-b">
+                <div class="session-title">UX Design in the Age of AI</div>
+                <div class="session-speaker">Lisa Park, Principal UX Designer</div>
+                <div class="session-duration">60 min</div>
+                <div class="session-location">Conference Room B</div>
+                <div class="session-description">How artificial intelligence is reshaping user experience design principles and practices.</div>
+            </div>
+        </div>
+
+        <div class="time-slot">
+            <div class="time-header">
+                <div class="time">4:00 PM - 5:00 PM</div>
+            </div>
+            <div class="session" data-track="keynote" data-type="presentation" data-room="main-auditorium">
+                <div class="session-title">Startup Pitch Session</div>
+                <div class="session-speaker">5 Selected Startups</div>
+                <div class="session-duration">60 min</div>
+                <div class="session-location">Main Auditorium</div>
+                <div class="session-description">Watch promising startups present their innovative solutions to a panel of investors.</div>
+            </div>
+        </div>
+
+        <div class="time-slot">
+            <div class="time-header">
+                <div class="time">5:15 PM - 6:30 PM</div>
+            </div>
+            <div class="session break" data-track="networking" data-type="networking" data-room="rooftop-terrace">
+                <div class="session-title">Closing Reception & Awards</div>
+                <div class="session-location">Rooftop Terrace</div>
+                <span class="tag networking">Networking</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-container">
+        <div class="channel-list">
+            <div class="channel-header">Channels:</div>
+            <div class="channel active" data-channel="general"># general</div>
+            <div class="channel" data-channel="keynote-qa"># keynote-qa</div>
+            <div class="channel" data-channel="networking"># networking</div>
+            <div class="channel" data-channel="tech-talks"># tech-talks</div>
+        </div>
+
+        <div class="chat-messages" id="chat-messages">
+            <div class="message">
+                <div class="message-sender">sarah_chen</div>
+                <div class="message-content">Welcome everyone! Looking forward to a great day of talks and networking 🎉</div>
+                <div class="message-time">8:15 AM</div>
+            </div>
+
+            <div class="message">
+                <div class="message-sender">marcus_dev</div>
+                <div class="message-content">Excited for the AI workshop this morning! Anyone else attending?</div>
+                <div class="message-time">8:22 AM</div>
+            </div>
+
+            <div class="message">
+                <div class="message-sender">jessica_mobile</div>
+                <div class="message-content">@marcus_dev yes! I'll be there. Looking forward to the hands-on part</div>
+                <div class="message-time">8:24 AM</div>
+            </div>
+
+            <div class="message">
+                <div class="message-sender">alex_startup</div>
+                <div class="message-content">Coffee in the lobby is excellent btw 👌</div>
+                <div class="message-time">8:28 AM</div>
+            </div>
+
+            <div class="message">
+                <div class="message-sender">lisa_design</div>
+                <div class="message-content">Where's the best place to sit for the keynote? First time here</div>
+                <div class="message-time">8:35 AM</div>
+            </div>
+
+            <div class="message">
+                <div class="message-sender">robert_cloud</div>
+                <div class="message-content">@lisa_design middle section has the best acoustics and screen visibility</div>
+                <div class="message-time">8:37 AM</div>
+            </div>
+
+            <div class="message">
+                <div class="message-sender">ahmed_research</div>
+                <div class="message-content">Quick reminder: lunch networking starts at 12:30 on the garden terrace!</div>
+                <div class="message-time">8:45 AM</div>
+            </div>
+
+            <div class="message">
+                <div class="message-sender">you</div>
+                <div class="message-content">Thanks for the tips everyone! This is my first tech conference</div>
+                <div class="message-time">8:52 AM</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-input-area">
+        <input type="text" class="chat-input" placeholder="Type a message..." onkeypress="handleChatInput(event)">
+    </div>
+
+    <div class="bottom-nav">
+        <div class="nav-tab active" data-tab="schedule">Schedule</div>
+        <div class="nav-tab" data-tab="chat">Chat</div>
+    </div>
+
+    <button class="floating-action" onclick="scrollToNow()">📍</button>
+
+    <script>
+        // Session expansion functionality
+        document.querySelectorAll('.session').forEach(session => {
+            session.addEventListener('click', function() {
+                this.classList.toggle('expanded');
+            });
+        });
+
+        // Toggle filters visibility
+        function toggleFilters() {
+            const filtersContent = document.getElementById('filters-content');
+            const filtersToggle = document.querySelector('.filters-toggle');
+            
+            filtersContent.classList.toggle('show');
+            filtersToggle.classList.toggle('expanded');
+        }
+
+        // Filter functionality
+        function updateFilters() {
+            // Get all checked values for each filter type
+            const selectedTypes = Array.from(document.querySelectorAll('input[data-filter="type"]:checked')).map(cb => cb.value);
+            const selectedTracks = Array.from(document.querySelectorAll('input[data-filter="track"]:checked')).map(cb => cb.value);
+            const selectedRooms = Array.from(document.querySelectorAll('input[data-filter="room"]:checked')).map(cb => cb.value);
+            
+            // Show/hide sessions based on all filters
+            document.querySelectorAll('.session').forEach(session => {
+                const sessionType = session.dataset.type;
+                const sessionTrack = session.dataset.track;
+                const sessionRoom = session.dataset.room;
+                
+                const typeMatch = selectedTypes.includes(sessionType);
+                const trackMatch = selectedTracks.includes(sessionTrack);
+                const roomMatch = selectedRooms.includes(sessionRoom);
+                
+                // Show session only if it matches ALL filter criteria
+                if (typeMatch && trackMatch && roomMatch) {
+                    session.style.display = 'block';
+                } else {
+                    session.style.display = 'none';
+                }
+            });
+            
+            // Hide empty time slots
+            document.querySelectorAll('.time-slot').forEach(timeSlot => {
+                const visibleSessions = timeSlot.querySelectorAll('.session[style="display: block"], .session:not([style*="display: none"])');
+                timeSlot.style.display = visibleSessions.length > 0 ? 'block' : 'none';
+            });
+        }
+
+        // Add event listeners to all filter checkboxes
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                // Update visual state
+                if (this.checked) {
+                    this.closest('.filter-checkbox').classList.add('selected');
+                } else {
+                    this.closest('.filter-checkbox').classList.remove('selected');
+                }
+                
+                // Apply filters
+                updateFilters();
+            });
+            
+            // Initialize visual state
+            if (checkbox.checked) {
+                checkbox.closest('.filter-checkbox').classList.add('selected');
+            }
+        });
+
+        // Scroll to current time
+        function scrollToNow() {
+            const nowIndicator = document.querySelector('.now-indicator');
+            if (nowIndicator) {
+                nowIndicator.closest('.time-slot').scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+            }
+        }
+
+        // Bottom navigation functionality
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove active class from all tabs
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                
+                const tabType = this.dataset.tab;
+                
+                // Hide all containers
+                document.querySelector('.schedule-container').classList.remove('active');
+                document.querySelector('.chat-container').classList.remove('active');
+                document.querySelector('.chat-input-area').classList.remove('active');
+                
+                // Show selected container
+                if (tabType === 'schedule') {
+                    document.querySelector('.schedule-container').classList.add('active');
+                } else if (tabType === 'chat') {
+                    document.querySelector('.chat-container').classList.add('active');
+                    document.querySelector('.chat-input-area').classList.add('active');
+                    // Scroll to bottom of chat
+                    const chatMessages = document.getElementById('chat-messages');
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+            });
+        });
+
+        // Channel switching functionality
+        document.querySelectorAll('.channel').forEach(channel => {
+            channel.addEventListener('click', function() {
+                document.querySelectorAll('.channel').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Mock: would load different channel messages here
+                // For now, just show a placeholder message
+                const channelName = this.dataset.channel;
+                console.log('Switched to channel: ' + channelName);
+            });
+        });
+
+        // Chat input functionality
+        function handleChatInput(event) {
+            if (event.key === 'Enter') {
+                const input = event.target;
+                const message = input.value.trim();
+                
+                if (message) {
+                    // Add message to chat (mock functionality)
+                    const chatMessages = document.getElementById('chat-messages');
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'message';
+                    
+                    const now = new Date();
+                    const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    
+                    messageDiv.innerHTML = `
+                        <div class="message-sender">you</div>
+                        <div class="message-content">${message}</div>
+                        <div class="message-time">${timeStr}</div>
+                    `;
+                    
+                    chatMessages.appendChild(messageDiv);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                    
+                    // Clear input
+                    input.value = '';
+                }
+            }
+        }
+
+        // Auto-scroll to current time on load
+        window.addEventListener('load', function() {
+            setTimeout(scrollToNow, 500);
+        });
+    </script>
+</body>
+</html>
