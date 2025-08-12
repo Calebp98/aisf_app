@@ -15,84 +15,51 @@ const { data: messages } = await supabase
   `)
   .order('created_at', { ascending: true })
 
-// Group messages by channel
-const messagesByChannel = messages?.reduce((acc, message) => {
-  const channelName = message.channels?.name || 'general'
-  if (!acc[channelName]) {
-    acc[channelName] = []
+// Group messages by channel ID (more reliable than name)
+const messagesByChannelId = messages?.reduce((acc, message) => {
+  const channelId = message.channel_id || 1
+  if (!acc[channelId]) {
+    acc[channelId] = []
   }
-  acc[channelName].push(message)
+  acc[channelId].push(message)
   return acc
 }, {}) || {}
+
+// Create channel map for easy lookup
+const channelMap = {
+  1: 'general',
+  2: 'keynote-qa',
+  3: 'networking', 
+  4: 'tech-talks'
+}
 ---
 
 <div class="chat-container">
 	<div class="channel-list">
-		<div class="channel-header">Channels:</div>
+		<div class="channel-header">Chat Channels</div>
+		<div class="channel-description">Select a channel to join the conversation</div>
 		{(channels || [
-			{name: 'general', display_name: 'General'},
-			{name: 'keynote-qa', display_name: 'Keynote Q&A'}, 
-			{name: 'networking', display_name: 'Networking'},
-			{name: 'tech-talks', display_name: 'Tech Talks'}
+			{id: 1, name: 'general', display_name: 'General Discussion'},
+			{id: 2, name: 'keynote-qa', display_name: 'Keynote Q&A'}, 
+			{id: 3, name: 'networking', display_name: 'Networking'},
+			{id: 4, name: 'tech-talks', display_name: 'Tech Talks'}
 		]).map((channel, index) => (
-			<div class={`channel ${index === 0 ? 'active' : ''}`} data-channel={channel.name}>
-				# {channel.display_name.toLowerCase()}
+			<div class={`channel ${index === 0 ? 'active' : ''}`} 
+			     data-channel-id={channel.id} 
+			     data-channel-name={channel.name}>
+				<div class="channel-name">#{channel.display_name}</div>
+				<div class="message-count" id={`count-${channel.id}`}>0 messages</div>
 			</div>
 		))}
 	</div>
 
+	<div class="chat-header">
+		<div class="current-channel" id="current-channel-name">#General Discussion</div>
+		<div class="online-count" id="online-count">● Live chat</div>
+	</div>
+	
 	<div class="chat-messages" id="chat-messages">
-		{messagesByChannel['general']?.map(message => (
-			<div class="message">
-				<div class="message-sender">{message.sender}</div>
-				<div class="message-content" set:html={message.content}></div>
-				<div class="message-time">
-					{new Date(message.created_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}
-				</div>
-			</div>
-		)) || [
-			// Fallback messages if database isn't populated yet
-			<div class="message">
-				<div class="message-sender">sarah_chen</div>
-				<div class="message-content">Welcome everyone! Looking forward to a great day of talks and networking 🎉</div>
-				<div class="message-time">8:15 AM</div>
-			</div>,
-			<div class="message">
-				<div class="message-sender">marcus_dev</div>
-				<div class="message-content">Excited for the AI workshop this morning! Anyone else attending?</div>
-				<div class="message-time">8:22 AM</div>
-			</div>,
-			<div class="message">
-				<div class="message-sender">jessica_mobile</div>
-				<div class="message-content">@marcus_dev yes! I'll be there. Looking forward to the hands-on part</div>
-				<div class="message-time">8:24 AM</div>
-			</div>,
-			<div class="message">
-				<div class="message-sender">alex_startup</div>
-				<div class="message-content">Coffee in the lobby is excellent btw 👌</div>
-				<div class="message-time">8:28 AM</div>
-			</div>,
-			<div class="message">
-				<div class="message-sender">lisa_design</div>
-				<div class="message-content">Where's the best place to sit for the keynote? First time here</div>
-				<div class="message-time">8:35 AM</div>
-			</div>,
-			<div class="message">
-				<div class="message-sender">robert_cloud</div>
-				<div class="message-content">@lisa_design middle section has the best acoustics and screen visibility</div>
-				<div class="message-time">8:37 AM</div>
-			</div>,
-			<div class="message">
-				<div class="message-sender">ahmed_research</div>
-				<div class="message-content">Quick reminder: lunch networking starts at 12:30 on the garden terrace!</div>
-				<div class="message-time">8:45 AM</div>
-			</div>,
-			<div class="message">
-				<div class="message-sender">you</div>
-				<div class="message-content">Thanks for the tips everyone! This is my first tech conference</div>
-				<div class="message-time">8:52 AM</div>
-			</div>
-		]}
+		<div class="loading-messages" id="loading-messages">Loading messages...</div>
 	</div>
 </div>
 
@@ -118,19 +85,62 @@ const messagesByChannel = messages?.reduce((acc, message) => {
 
 	.channel-header {
 		font-weight: bold;
-		margin-bottom: 8px;
+		margin-bottom: 4px;
+		font-size: 1.1em;
+	}
+
+	.channel-description {
+		font-size: 0.8em;
+		margin-bottom: 12px;
+		color: #666;
 	}
 
 	.channel {
-		padding: 4px 8px;
-		margin-bottom: 4px;
+		padding: 8px 12px;
+		margin-bottom: 6px;
 		border: 1px solid black;
 		cursor: pointer;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.channel:hover {
+		background: #f0f0f0;
 	}
 
 	.channel.active {
 		background: black;
 		color: white;
+	}
+
+	.channel-name {
+		font-weight: bold;
+	}
+
+	.message-count {
+		font-size: 0.7em;
+		opacity: 0.7;
+	}
+
+	.chat-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 12px;
+		border: 1px solid black;
+		margin-bottom: 16px;
+		background: #f9f9f9;
+	}
+
+	.current-channel {
+		font-weight: bold;
+		font-size: 1.1em;
+	}
+
+	.online-count {
+		font-size: 0.8em;
+		color: #4ecdc4;
 	}
 
 	.chat-messages {
@@ -155,6 +165,13 @@ const messagesByChannel = messages?.reduce((acc, message) => {
 	.message-time {
 		font-size: 0.8em;
 		margin-top: 4px;
+	}
+
+	.loading-messages {
+		text-align: center;
+		padding: 20px;
+		color: #666;
+		font-style: italic;
 	}
 
 	.chat-input-area {
@@ -182,26 +199,177 @@ const messagesByChannel = messages?.reduce((acc, message) => {
 	}
 </style>
 
-<script define:vars={{ messagesByChannel, channels }}>
+<script define:vars={{ messagesByChannelId, channelMap }}>
+	// Global state for real-time chat
+	let currentChannelId = 1; // Default to general channel
+	let realtimeSubscription = null;
+	let allMessages = {}; // Store all messages by channel ID
+	
+	// Initialize chat system
+	async function initChat() {
+		try {
+			// Load initial messages
+			await loadAllMessages();
+			
+			// Set up real-time subscriptions
+			await initRealtimeChat();
+			
+			// Load initial channel (general)
+			switchToChannel(1, 'General Discussion');
+			
+			console.log('Chat system initialized');
+		} catch (error) {
+			console.error('Failed to initialize chat:', error);
+		}
+	}
+	
+	// Load all messages from database
+	async function loadAllMessages() {
+		try {
+			const { supabase } = await import('/src/lib/supabase.js');
+			
+			const { data: messages, error } = await supabase
+				.from('messages')
+				.select('*')
+				.order('created_at', { ascending: true });
+				
+			if (error) {
+				console.error('Error loading messages:', error);
+				return;
+			}
+			
+			// Group messages by channel ID
+			allMessages = {};
+			messages?.forEach(message => {
+				const channelId = message.channel_id || 1;
+				if (!allMessages[channelId]) {
+					allMessages[channelId] = [];
+				}
+				allMessages[channelId].push(message);
+			});
+			
+			// Update message counts
+			updateMessageCounts();
+			
+		} catch (error) {
+			console.error('Error loading messages:', error);
+		}
+	}
+	
+	// Update message counts in channel list
+	function updateMessageCounts() {
+		Object.keys(allMessages).forEach(channelId => {
+			const count = allMessages[channelId]?.length || 0;
+			const countEl = document.getElementById(`count-${channelId}`);
+			if (countEl) {
+				countEl.textContent = `${count} message${count !== 1 ? 's' : ''}`;
+			}
+		});
+	}
+	
+	// Initialize real-time chat
+	async function initRealtimeChat() {
+		try {
+			const { supabase } = await import('/src/lib/supabase.js');
+			
+			// Subscribe to real-time message updates
+			realtimeSubscription = supabase
+				.channel('messages')
+				.on('postgres_changes', 
+					{ event: 'INSERT', schema: 'public', table: 'messages' },
+					(payload) => {
+						console.log('New message received:', payload);
+						handleNewMessage(payload.new);
+					}
+				)
+				.subscribe();
+				
+			console.log('Real-time chat subscribed');
+		} catch (error) {
+			console.error('Failed to initialize real-time chat:', error);
+		}
+	}
+	
+	// Handle new message from real-time subscription
+	function handleNewMessage(message) {
+		const channelId = message.channel_id || 1;
+		
+		// Add to our local message store
+		if (!allMessages[channelId]) {
+			allMessages[channelId] = [];
+		}
+		allMessages[channelId].push(message);
+		
+		// Update message counts
+		updateMessageCounts();
+		
+		// If this message is for the current channel, add it to UI
+		if (channelId === currentChannelId) {
+			addMessageToUI(message);
+		}
+	}
+	
+	// Add message to UI
+	function addMessageToUI(message) {
+		const chatMessages = document.getElementById('chat-messages');
+		const loadingMsg = document.getElementById('loading-messages');
+		
+		// Remove loading message if it exists
+		if (loadingMsg) {
+			loadingMsg.remove();
+		}
+		
+		const messageDiv = document.createElement('div');
+		messageDiv.className = 'message';
+		
+		const timeStr = new Date(message.created_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+		
+		messageDiv.innerHTML = `
+			<div class="message-sender">${message.sender_name || 'Anonymous'}</div>
+			<div class="message-content">${message.content}</div>
+			<div class="message-time">${timeStr}</div>
+		`;
+		
+		chatMessages.appendChild(messageDiv);
+		chatMessages.scrollTop = chatMessages.scrollHeight;
+	}
+	
+	// Switch to a specific channel
+	function switchToChannel(channelId, channelName) {
+		currentChannelId = channelId;
+		
+		// Update UI
+		document.getElementById('current-channel-name').textContent = `#${channelName}`;
+		
+		// Clear and load messages for this channel
+		const chatMessages = document.getElementById('chat-messages');
+		const messages = allMessages[channelId] || [];
+		
+		if (messages.length === 0) {
+			chatMessages.innerHTML = '<div class="loading-messages">No messages yet. Be the first to start the conversation!</div>';
+		} else {
+			chatMessages.innerHTML = messages.map(message => `
+				<div class="message">
+					<div class="message-sender">${message.sender_name || 'Anonymous'}</div>
+					<div class="message-content">${message.content}</div>
+					<div class="message-time">${new Date(message.created_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}</div>
+				</div>
+			`).join('');
+		}
+		
+		chatMessages.scrollTop = chatMessages.scrollHeight;
+	}
+
 	// Channel switching functionality
 	document.querySelectorAll('.channel').forEach(channel => {
 		channel.addEventListener('click', function() {
 			document.querySelectorAll('.channel').forEach(c => c.classList.remove('active'));
 			this.classList.add('active');
 			
-			const channelName = this.dataset.channel;
-			const chatMessages = document.getElementById('chat-messages');
-			const messages = messagesByChannel[channelName] || [];
+			const channelId = parseInt(this.dataset.channelId);
+			const channelName = this.querySelector('.channel-name').textContent.replace('#', '');
 			
-			chatMessages.innerHTML = messages.map(message => `
-				<div class="message">
-					<div class="message-sender">${message.sender}</div>
-					<div class="message-content">${message.content}</div>
-					<div class="message-time">${new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-				</div>
-			`).join('');
-			
-			chatMessages.scrollTop = chatMessages.scrollHeight;
+			switchToChannel(channelId, channelName);
 		});
 	});
 
@@ -229,12 +397,8 @@ const messagesByChannel = messages?.reduce((acc, message) => {
 					return;
 				}
 				
-				// Get current channel (defaulting to general)
-				const activeChannel = document.querySelector('.channel.active');
-				const channelId = 1; // For now, always send to general channel
-				
-				// Send message to database
-				const { error } = await sendMessage(channelId, message);
+				// Send message to current channel
+				const { error } = await sendMessage(currentChannelId, message);
 				
 				if (error) {
 					console.error('Error sending message:', error);
@@ -242,22 +406,7 @@ const messagesByChannel = messages?.reduce((acc, message) => {
 					return;
 				}
 				
-				// Add message to UI immediately for better UX
-				const chatMessages = document.getElementById('chat-messages');
-				const messageDiv = document.createElement('div');
-				messageDiv.className = 'message';
-				
-				const now = new Date();
-				const timeStr = now.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
-				
-				messageDiv.innerHTML = `
-					<div class="message-sender">${profile.name}</div>
-					<div class="message-content">${message}</div>
-					<div class="message-time">${timeStr}</div>
-				`;
-				
-				chatMessages.appendChild(messageDiv);
-				chatMessages.scrollTop = chatMessages.scrollHeight;
+				// Clear input - real-time subscription will add message to UI
 				input.value = '';
 				
 			} catch (error) {
@@ -267,6 +416,9 @@ const messagesByChannel = messages?.reduce((acc, message) => {
 		}
 	}
 
-	// Make function globally available
+	// Make functions globally available
 	window.handleChatInput = handleChatInput;
+	
+	// Initialize complete chat system when the component loads
+	initChat();
 </script>

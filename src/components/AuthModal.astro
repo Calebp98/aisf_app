@@ -317,7 +317,7 @@
     showAuthLoading(true);
     
     try {
-      const { signUp, signIn } = await import('../lib/auth.js');
+      const { signUp, signIn } = await import('/src/lib/auth.js');
       
       // First try to sign up
       const { data: signupData, error: signupError } = await signUp(email, password, {
@@ -382,7 +382,7 @@
     const password = document.getElementById('login-password').value;
     
     try {
-      const { signIn } = await import('../lib/auth.js');
+      const { signIn } = await import('/src/lib/auth.js');
       const { data, error } = await signIn(email, password);
       
       if (error) {
@@ -411,7 +411,7 @@
     const company = document.getElementById('signup-company').value;
     
     try {
-      const { signUp } = await import('../lib/auth.js');
+      const { signUp } = await import('/src/lib/auth.js');
       const { data, error } = await signUp(email, password, {
         name,
         title,
