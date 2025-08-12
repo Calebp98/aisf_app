@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Demo Users</title>
+    <style>
+        body { 
+            font-family: 'Monaco', 'Menlo', monospace; 
+            padding: 20px; 
+            max-width: 600px; 
+            margin: 0 auto;
+        }
+        .user-card { 
+            border: 1px solid black; 
+            padding: 10px; 
+            margin: 10px 0; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        button { 
+            padding: 8px 12px; 
+            border: 1px solid black; 
+            background: white; 
+            cursor: pointer; 
+            font-family: inherit;
+        }
+        button:hover { background: #f0f0f0; }
+        button.success { background: #4ecdc4; color: white; }
+        button.error { background: #ff6b35; color: white; }
+        .status { margin-left: 10px; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+    <h1>Create Demo Users for Conference App</h1>
+    <p>This will create demo accounts that you can use to test the conference app authentication.</p>
+    
+    <div id="demo-users"></div>
+    
+    <button onclick="createAllUsers()" id="create-all-btn" style="margin-top: 20px; font-weight: bold;">
+        Create All Demo Users
+    </button>
+    
+    <div style="margin-top: 20px; padding: 10px; border: 1px solid black;">
+        <strong>Instructions:</strong>
+        <ol>
+            <li>Click "Create All Demo Users" to create accounts</li>
+            <li>Go back to your conference app</li>
+            <li>Login with any of these accounts (password is always "demo123")</li>
+            <li>Test RSVPs, My Schedule, and Chat features</li>
+        </ol>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2'
+        
+        // You'll need to update these with your Supabase credentials
+        const SUPABASE_URL = prompt('Enter your Supabase URL:') || 'your-project-url'
+        const SUPABASE_ANON_KEY = prompt('Enter your Supabase Anon Key:') || 'your-anon-key'
+        
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        
+        const demoUsers = [
+            {
+                email: 'sarah.chen@innovatefirst.com',
+                password: 'demo123',
+                name: 'Dr. Sarah Chen',
+                title: 'CTO',
+                company: 'InnovateFirst',
+                bio: 'Leading digital transformation initiatives with AI and cloud technologies.',
+                interests: ['AI', 'Cloud', 'Leadership']
+            },
+            {
+                email: 'marcus@techventures.com',
+                password: 'demo123',
+                name: 'Marcus Rodriguez',
+                title: 'Head of AI',
+                company: 'TechVentures',
+                bio: 'AI researcher turned entrepreneur building intelligent applications.',
+                interests: ['AI', 'Startup', 'Machine Learning']
+            },
+            {
+                email: 'jessica@appcorp.com',
+                password: 'demo123',
+                name: 'Jessica Kim',
+                title: 'Senior Mobile Engineer',
+                company: 'AppCorp',
+                bio: 'Mobile development expert creating beautiful cross-platform experiences.',
+                interests: ['Mobile', 'UX', 'React Native']
+            },
+            {
+                email: 'robert@cloudtech.com',
+                password: 'demo123',
+                name: 'Robert Chen',
+                title: 'Cloud Solutions Architect',
+                company: 'CloudTech',
+                bio: 'Helping companies scale from startup to enterprise with cloud infrastructure.',
+                interests: ['Cloud', 'DevOps', 'Architecture']
+            },
+            {
+                email: 'lisa@designlab.com',
+                password: 'demo123',
+                name: 'Lisa Park',
+                title: 'Principal UX Designer',
+                company: 'DesignLab',
+                bio: 'Creating intuitive digital experiences through human-centered design.',
+                interests: ['UX', 'Design', 'Research']
+            }
+        ]
+        
+        function renderUsers() {
+            const container = document.getElementById('demo-users')
+            container.innerHTML = demoUsers.map((user, index) => `
+                <div class="user-card">
+                    <div>
+                        <strong>${user.name}</strong><br>
+                        <small>${user.email} | ${user.title} at ${user.company}</small>
+                    </div>
+                    <div>
+                        <button onclick="createSingleUser(${index})" id="btn-${index}">
+                            Create Account
+                        </button>
+                        <span class="status" id="status-${index}"></span>
+                    </div>
+                </div>
+            `).join('')
+        }
+        
+        async function createSingleUser(index) {
+            const user = demoUsers[index]
+            const btn = document.getElementById(`btn-${index}`)
+            const status = document.getElementById(`status-${index}`)
+            
+            btn.textContent = 'Creating...'
+            btn.disabled = true
+            status.textContent = ''
+            
+            try {
+                // Create auth account
+                const { data, error } = await supabase.auth.signUp({
+                    email: user.email,
+                    password: user.password,
+                    options: {
+                        data: {
+                            name: user.name,
+                            title: user.title,
+                            company: user.company
+                        }
+                    }
+                })
+                
+                if (error) {
+                    if (error.message.includes('already been registered')) {
+                        btn.textContent = 'Already Exists'
+                        btn.className = 'success'
+                        status.textContent = 'Account already exists'
+                    } else {
+                        btn.textContent = 'Error'
+                        btn.className = 'error'
+                        status.textContent = error.message
+                    }
+                    return
+                }
+                
+                // Create profile in database
+                if (data.user) {
+                    const { error: profileError } = await supabase
+                        .from('users')
+                        .insert({
+                            auth_user_id: data.user.id,
+                            email: user.email,
+                            name: user.name,
+                            title: user.title,
+                            company: user.company,
+                            bio: user.bio,
+                            interests: user.interests
+                        })
+                    
+                    if (profileError) {
+                        console.log('Profile creation warning:', profileError)
+                        // Continue anyway - profile will be created on first login
+                    }
+                }
+                
+                btn.textContent = 'Created!'
+                btn.className = 'success'
+                status.textContent = 'Ready to use'
+                
+            } catch (err) {
+                btn.textContent = 'Error'
+                btn.className = 'error' 
+                status.textContent = err.message
+            } finally {
+                btn.disabled = false
+            }
+        }
+        
+        async function createAllUsers() {
+            const btn = document.getElementById('create-all-btn')
+            btn.textContent = 'Creating All Users...'
+            btn.disabled = true
+            
+            for (let i = 0; i < demoUsers.length; i++) {
+                await createSingleUser(i)
+                // Small delay between requests
+                await new Promise(resolve => setTimeout(resolve, 500))
+            }
+            
+            btn.textContent = 'All Demo Users Created!'
+            btn.className = 'success'
+            btn.disabled = false
+        }
+        
+        // Make functions global
+        window.createSingleUser = createSingleUser
+        window.createAllUsers = createAllUsers
+        
+        // Render users on load
+        renderUsers()
+    </script>
+</body>
+</html>

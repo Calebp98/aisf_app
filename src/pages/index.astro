@@ -1,0 +1,812 @@
+---
+import { supabase } from '../lib/supabase.js'
+import ScheduleFilters from '../components/ScheduleFilters.astro'
+import Chat from '../components/Chat.astro'
+import Profiles from '../components/Profiles.astro'
+import MySchedule from '../components/MySchedule.astro'
+import AuthModal from '../components/AuthModal.astro'
+
+// Fetch sessions from Supabase
+const { data: sessions, error } = await supabase
+  .from('sessions')
+  .select('*')
+  .order('start_time', { ascending: true })
+
+if (error) {
+  console.error('Error fetching sessions:', error)
+}
+
+// Fallback sessions if database not set up yet
+const fallbackSessions = [
+  {
+    id: 1,
+    title: 'Registration & Welcome Coffee',
+    speaker: null,
+    location: 'Main Lobby',
+    room: 'main-lobby',
+    track: 'networking',
+    type: 'networking',
+    time: '8:00 AM - 9:00 AM',
+    description: null,
+    duration: '60 min',
+    isNow: false
+  },
+  {
+    id: 2,
+    title: 'Opening Keynote: The Future of Digital Innovation',
+    speaker: 'Dr. Sarah Chen, CTO at InnovateFirst',
+    location: 'Main Auditorium',
+    room: 'main-auditorium',
+    track: 'keynote',
+    type: 'keynote',
+    time: '9:00 AM - 10:00 AM',
+    description: 'Join Dr. Chen as she explores emerging technologies and their impact on business transformation in the next decade.',
+    duration: '60 min',
+    isNow: true
+  }
+]
+
+// Format sessions data for display
+const scheduleData = sessions?.length ? sessions.map(session => {
+  const startTime = new Date(session.start_time)
+  const endTime = new Date(session.end_time)
+  const now = new Date()
+  
+  // Format time display
+  const timeString = `${startTime.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})} - ${endTime.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}`
+  
+  // Check if session is happening now
+  const isNow = now >= startTime && now <= endTime
+  
+  return {
+    ...session,
+    time: timeString,
+    isNow
+  }
+}) : fallbackSessions
+
+// Group sessions by time slot
+const groupedSessions = scheduleData.reduce((acc, session) => {
+  const timeKey = session.time
+  if (!acc[timeKey]) {
+    acc[timeKey] = []
+  }
+  acc[timeKey].push(session)
+  return acc
+}, {})
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>TechConnect 2024 - Conference Schedule</title>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			body {
+				font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+				background-color: white;
+				color: black;
+				line-height: 1.4;
+				padding: 16px;
+			}
+
+			.header {
+				margin-bottom: 24px;
+				border-bottom: 1px solid black;
+				padding-bottom: 16px;
+			}
+
+			.header-content {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 16px;
+			}
+
+			.header-text {
+				text-align: center;
+				flex: 1;
+			}
+
+			.header-actions {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+
+			.user-info {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				font-size: 0.9em;
+			}
+
+			.login-btn, .logout-btn {
+				padding: 6px 12px;
+				border: 1px solid black;
+				background: white;
+				cursor: pointer;
+				font-family: inherit;
+				font-size: 0.8em;
+			}
+
+			.login-btn:hover, .logout-btn:hover {
+				background: #f0f0f0;
+			}
+
+			@media (max-width: 600px) {
+				.header-content {
+					flex-direction: column;
+					gap: 8px;
+				}
+				
+				.header-text {
+					order: 1;
+				}
+				
+				.header-actions {
+					order: 2;
+				}
+			}
+
+			.schedule-container {
+				max-width: 100%;
+				padding-bottom: 60px;
+			}
+
+			.time-slot {
+				margin-bottom: 24px;
+				border: 1px solid black;
+				padding: 12px;
+			}
+
+			.time-header {
+				font-weight: bold;
+				margin-bottom: 12px;
+			}
+
+			.now-indicator {
+				color: red;
+				font-weight: bold;
+			}
+
+			.session {
+				margin-bottom: 12px;
+				padding: 8px;
+				border: 1px solid black;
+				cursor: pointer;
+			}
+
+			.session:last-child {
+				margin-bottom: 0;
+			}
+
+			.session-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: flex-start;
+				margin-bottom: 4px;
+				gap: 8px;
+			}
+
+			.session-title {
+				font-weight: bold;
+				flex: 1;
+			}
+
+			.rsvp-btn {
+				padding: 4px 8px;
+				border: 1px solid black;
+				background: white;
+				cursor: pointer;
+				font-size: 0.8em;
+				font-family: inherit;
+				flex-shrink: 0;
+			}
+
+			.rsvp-btn.active {
+				background: black;
+				color: white;
+			}
+
+			.rsvp-btn:hover {
+				background: #f0f0f0;
+			}
+
+			.rsvp-btn.active:hover {
+				background: #333;
+			}
+
+			.session-speaker {
+				margin-bottom: 4px;
+			}
+
+			.session-location {
+				margin-bottom: 4px;
+			}
+
+			.session-duration {
+				margin-bottom: 4px;
+				font-size: 0.9em;
+			}
+
+			.session-attendees {
+				font-size: 0.8em;
+				color: #666;
+				margin-bottom: 4px;
+			}
+
+			.session-tags {
+				display: flex;
+				gap: 4px;
+				flex-wrap: wrap;
+			}
+
+			.session-description {
+				margin-top: 8px;
+				display: none;
+			}
+
+			.session.expanded .session-description {
+				display: block;
+			}
+
+			.session.break {
+				background-color: #f8f8f8;
+			}
+
+			.session.keynote {
+				background-color: #fff8f0;
+			}
+
+			.session.workshop {
+				background-color: #f0f8ff;
+			}
+
+			.tag {
+				display: inline-block;
+				padding: 2px 6px;
+				border: 1px solid black;
+				font-size: 0.7em;
+				text-transform: capitalize;
+			}
+
+			.tag.keynote {
+				background: #f0f0f0;
+			}
+
+			.tag.networking {
+				background: #e0e0e0;
+			}
+
+			.tag.workshop {
+				background: #d0d0ff;
+			}
+
+			.tag.panel {
+				background: #f0e0f0;
+			}
+
+			.tag.talk {
+				background: #e0f0e0;
+			}
+
+			.tag.presentation {
+				background: #ffe0e0;
+			}
+
+			.tag.community {
+				background: #ffd700;
+				color: black;
+			}
+
+			.tag.private {
+				background: #ff6b35;
+				color: white;
+			}
+
+			.bottom-nav {
+				position: fixed;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				background: white;
+				border-top: 1px solid black;
+				display: flex;
+			}
+
+			.nav-tab {
+				flex: 1;
+				padding: 12px;
+				text-align: center;
+				border-right: 1px solid black;
+				cursor: pointer;
+				font-weight: bold;
+			}
+
+			.nav-tab:last-child {
+				border-right: none;
+			}
+
+			.nav-tab.active {
+				background: black;
+				color: white;
+			}
+
+			.schedule-container.active {
+				display: block;
+				padding-bottom: 60px;
+			}
+
+			.schedule-container:not(.active) {
+				display: none;
+			}
+
+			.floating-action {
+				position: fixed;
+				bottom: 80px;
+				right: 20px;
+				background: black;
+				color: white;
+				border: 1px solid black;
+				width: 40px;
+				height: 40px;
+				cursor: pointer;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 16px;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="header">
+			<div class="header-content">
+				<div class="header-text">
+					<h1>TechConnect 2024</h1>
+					<div class="date">March 15, 2024 • Innovation Hub</div>
+				</div>
+				<div class="header-actions">
+					<div class="user-info" id="user-info" style="display: none;">
+						<span id="user-name"></span>
+						<button class="logout-btn" onclick="handleLogout()">Logout</button>
+					</div>
+					<button class="login-btn" id="login-btn" onclick="showAuthModal()">Login</button>
+				</div>
+			</div>
+		</div>
+
+		<ScheduleFilters sessions={scheduleData} />
+
+		<div class="schedule-container active">
+			{Object.entries(groupedSessions).map(([timeSlot, sessions]) => {
+				const hasNowIndicator = sessions.some(session => session.isNow)
+				return (
+					<div class="time-slot">
+						<div class="time-header">
+							<div class="time">
+								{timeSlot} 
+								{hasNowIndicator && <span class="now-indicator">NOW</span>}
+							</div>
+						</div>
+						{sessions.map(session => (
+							<div class={`session ${session.type}`} data-track={session.track} data-type={session.type} data-room={session.room} data-session-id={session.id}>
+								<div class="session-header">
+									<div class="session-title">{session.title}</div>
+									<button class="rsvp-btn" onclick={`toggleRSVP(${session.id})`} data-session-id={session.id}>
+										Going
+									</button>
+								</div>
+								{session.speaker && <div class="session-speaker">{session.speaker}</div>}
+								{session.duration && <div class="session-duration">{session.duration}</div>}
+								<div class="session-location">{session.location}</div>
+								{session.max_attendees && (
+									<div class="session-attendees" id={`attendees-${session.id}`}>
+										0 going
+									</div>
+								)}
+								{session.description && (
+									<div class="session-description">{session.description}</div>
+								)}
+								<div class="session-tags">
+									<span class={`tag ${session.type}`}>
+										{session.type === 'keynote' ? 'Keynote' : 
+										 session.type === 'networking' ? 'Networking' :
+										 session.type === 'workshop' ? 'Workshop' : 
+										 session.type.charAt(0).toUpperCase() + session.type.slice(1)}
+									</span>
+									{!session.is_official && (
+										<span class="tag community">Community</span>
+									)}
+									{session.is_private && (
+										<span class="tag private">Private</span>
+									)}
+								</div>
+							</div>
+						))}
+					</div>
+				)
+			})}
+		</div>
+
+		<Chat />
+
+		<Profiles />
+
+		<MySchedule />
+
+		<AuthModal />
+
+		<button class="floating-action" onclick="scrollToNow()">📍</button>
+
+		<div class="bottom-nav">
+			<div class="nav-tab active" data-tab="schedule">Schedule</div>
+			<div class="nav-tab" data-tab="chat">Chat</div>
+			<div class="nav-tab" data-tab="profiles">Profiles</div>
+			<div class="nav-tab" data-tab="my-schedule">My Schedule</div>
+		</div>
+
+		<script type="module">
+			import { initAuth, isAuthenticated, getCurrentProfile, onAuthStateChange, toggleRSVP as authToggleRSVP, getUserRSVPStatus } from './src/lib/auth.js';
+			
+			let currentUser = null;
+			let currentProfile = null;
+			let userRSVPs = {};
+
+			// Initialize authentication
+			async function initializeApp() {
+				await initAuth();
+				currentUser = isAuthenticated();
+				currentProfile = getCurrentProfile();
+				
+				// Update UI based on auth state
+				updateAuthUI();
+				
+				// Load user RSVPs if authenticated
+				if (currentUser && currentProfile) {
+					await loadUserRSVPs();
+					loadMySchedule();
+				} else {
+					loadMySchedule(); // Show login message
+				}
+				
+				// Listen for auth state changes
+				onAuthStateChange((user, profile) => {
+					currentUser = user;
+					currentProfile = profile;
+					updateAuthUI();
+					if (user && profile) {
+						loadUserRSVPs();
+						loadMySchedule();
+					} else {
+						userRSVPs = {};
+						updateRSVPButtons();
+						loadMySchedule(); // This will show the login message
+					}
+				});
+			}
+
+			// Update authentication UI
+			function updateAuthUI() {
+				const loginBtn = document.getElementById('login-btn');
+				const userInfo = document.getElementById('user-info');
+				const userName = document.getElementById('user-name');
+				
+				if (currentUser && currentProfile) {
+					loginBtn.style.display = 'none';
+					userInfo.style.display = 'flex';
+					userName.textContent = currentProfile.name || currentUser.email;
+				} else {
+					loginBtn.style.display = 'block';
+					userInfo.style.display = 'none';
+				}
+			}
+
+			// Load user RSVPs and update buttons
+			async function loadUserRSVPs() {
+				if (!currentUser || !currentProfile) return;
+				
+				// Get all session IDs
+				const sessionIds = Array.from(document.querySelectorAll('[data-session-id]'))
+					.map(el => parseInt(el.dataset.sessionId))
+					.filter(id => !isNaN(id));
+				
+				try {
+					userRSVPs = await getUserRSVPStatus(sessionIds);
+					updateRSVPButtons();
+				} catch (error) {
+					console.error('Error loading RSVPs:', error);
+				}
+			}
+
+			// Update RSVP button states
+			function updateRSVPButtons() {
+				document.querySelectorAll('.rsvp-btn').forEach(btn => {
+					const sessionId = parseInt(btn.dataset.sessionId);
+					const isRSVPed = userRSVPs[sessionId] || false;
+					
+					btn.classList.toggle('active', isRSVPed);
+					btn.textContent = isRSVPed ? '✓ Going' : 'Going';
+				});
+			}
+
+			// Handle logout
+			async function handleLogout() {
+				try {
+					const { signOut } = await import('./src/lib/auth.js');
+					await signOut();
+					window.location.reload();
+				} catch (error) {
+					console.error('Logout error:', error);
+				}
+			}
+
+			// Session expansion functionality
+			document.querySelectorAll('.session').forEach(session => {
+				session.addEventListener('click', function(e) {
+					// Don't expand if clicking on RSVP button
+					if (e.target.classList.contains('rsvp-btn')) {
+						return;
+					}
+					this.classList.toggle('expanded');
+				});
+			});
+
+			// Initialize app when DOM is loaded
+			if (document.readyState === 'loading') {
+				document.addEventListener('DOMContentLoaded', initializeApp);
+			} else {
+				initializeApp();
+			}
+
+			// Load My Schedule for authenticated users
+			async function loadMySchedule() {
+				if (!currentUser || !currentProfile) {
+					document.getElementById('empty-schedule').style.display = 'block';
+					document.getElementById('schedule-timeline').style.display = 'none';
+					document.getElementById('empty-schedule').querySelector('.empty-message').textContent = 'Please log in to see your personalized schedule.';
+					return;
+				}
+
+				try {
+					const { getUserRSVPs } = await import('./src/lib/auth.js');
+					const rsvps = await getUserRSVPs();
+					
+					if (rsvps.length === 0) {
+						document.getElementById('empty-schedule').style.display = 'block';
+						document.getElementById('schedule-timeline').style.display = 'none';
+						document.getElementById('empty-schedule').querySelector('.empty-message').textContent = 'No items in your schedule yet.';
+						return;
+					}
+
+					// Sort RSVPs by start time
+					rsvps.sort((a, b) => new Date(a.sessions.start_time) - new Date(b.sessions.start_time));
+
+					// Populate timeline
+					const timeline = document.getElementById('schedule-timeline');
+					timeline.innerHTML = rsvps.map(rsvp => {
+						const session = rsvp.sessions;
+						const startTime = new Date(session.start_time);
+						const endTime = new Date(session.end_time);
+						
+						return `
+							<div class="timeline-item rsvp">
+								<div class="timeline-time">
+									${startTime.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})} - ${endTime.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}
+								</div>
+								<div class="timeline-content">
+									<div class="item-header">
+										<div class="item-title">${session.title}</div>
+									</div>
+									<div class="item-details">
+										${session.speaker ? `<div class="item-speaker">${session.speaker}</div>` : ''}
+										<div class="item-location">${session.location}</div>
+										${session.description ? `<div class="item-description">${session.description}</div>` : ''}
+									</div>
+									<div class="item-actions">
+										<div class="rsvp-actions">
+											<div class="action-buttons">
+												<button class="cancel-btn" onclick="cancelRSVP(${session.id})">
+													Cancel RSVP
+												</button>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						`;
+					}).join('');
+
+					document.getElementById('empty-schedule').style.display = 'none';
+					document.getElementById('schedule-timeline').style.display = 'block';
+
+				} catch (error) {
+					console.error('Error loading schedule:', error);
+				}
+			}
+
+			// Cancel RSVP from My Schedule
+			async function cancelRSVP(sessionId) {
+				if (confirm('Are you sure you want to cancel your RSVP?')) {
+					try {
+						await toggleRSVP(sessionId); // This will remove the RSVP
+						loadMySchedule(); // Refresh the schedule
+					} catch (error) {
+						console.error('Error canceling RSVP:', error);
+					}
+				}
+			}
+
+			// Make functions globally available
+			window.handleLogout = handleLogout;
+			window.cancelRSVP = cancelRSVP;
+
+			// Toggle filters visibility
+			function toggleFilters() {
+				const filtersContent = document.getElementById('filters-content');
+				const filtersToggle = document.querySelector('.filters-toggle');
+				
+				filtersContent.classList.toggle('show');
+				filtersToggle.classList.toggle('expanded');
+			}
+
+			// Filter functionality
+			function updateFilters() {
+				const selectedTypes = Array.from(document.querySelectorAll('input[data-filter="type"]:checked')).map(cb => cb.value);
+				const selectedTracks = Array.from(document.querySelectorAll('input[data-filter="track"]:checked')).map(cb => cb.value);
+				const selectedRooms = Array.from(document.querySelectorAll('input[data-filter="room"]:checked')).map(cb => cb.value);
+				
+				document.querySelectorAll('.session').forEach(session => {
+					const sessionType = session.dataset.type;
+					const sessionTrack = session.dataset.track;
+					const sessionRoom = session.dataset.room;
+					
+					const typeMatch = selectedTypes.includes(sessionType);
+					const trackMatch = selectedTracks.includes(sessionTrack);
+					const roomMatch = selectedRooms.includes(sessionRoom);
+					
+					if (typeMatch && trackMatch && roomMatch) {
+						session.style.display = 'block';
+					} else {
+						session.style.display = 'none';
+					}
+				});
+				
+				document.querySelectorAll('.time-slot').forEach(timeSlot => {
+					const visibleSessions = timeSlot.querySelectorAll('.session[style="display: block"], .session:not([style*="display: none"])');
+					timeSlot.style.display = visibleSessions.length > 0 ? 'block' : 'none';
+				});
+			}
+
+			// Add event listeners to all filter checkboxes
+			document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+				checkbox.addEventListener('change', function() {
+					if (this.checked) {
+						this.closest('.filter-checkbox').classList.add('selected');
+					} else {
+						this.closest('.filter-checkbox').classList.remove('selected');
+					}
+					updateFilters();
+				});
+				
+				// Initialize visual state
+				if (checkbox.checked) {
+					checkbox.closest('.filter-checkbox').classList.add('selected');
+				}
+			});
+
+			// Bottom navigation functionality
+			document.querySelectorAll('.nav-tab').forEach(tab => {
+				tab.addEventListener('click', function() {
+					// Remove active class from all tabs
+					document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+					this.classList.add('active');
+					
+					const tabType = this.dataset.tab;
+					
+					// Hide all containers
+					document.querySelector('.schedule-container').classList.remove('active');
+					document.querySelector('.chat-container').classList.remove('active');
+					document.querySelector('.chat-input-area').classList.remove('active');
+					document.querySelector('.profiles-container').classList.remove('active');
+					document.querySelector('.my-schedule-container').classList.remove('active');
+					
+					// Show selected container
+					if (tabType === 'schedule') {
+						document.querySelector('.schedule-container').classList.add('active');
+					} else if (tabType === 'chat') {
+						document.querySelector('.chat-container').classList.add('active');
+						document.querySelector('.chat-input-area').classList.add('active');
+						// Scroll to bottom of chat
+						const chatMessages = document.getElementById('chat-messages');
+						if (chatMessages) {
+							chatMessages.scrollTop = chatMessages.scrollHeight;
+						}
+					} else if (tabType === 'profiles') {
+						document.querySelector('.profiles-container').classList.add('active');
+					} else if (tabType === 'my-schedule') {
+						document.querySelector('.my-schedule-container').classList.add('active');
+						loadMySchedule(); // Refresh schedule when tab is opened
+					}
+				});
+			});
+
+			// Scroll to current time
+			function scrollToNow() {
+				const nowIndicator = document.querySelector('.now-indicator');
+				if (nowIndicator) {
+					nowIndicator.closest('.time-slot').scrollIntoView({ 
+						behavior: 'smooth', 
+						block: 'center' 
+					});
+				}
+			}
+
+			// Auto-scroll to current time on load
+			window.addEventListener('load', function() {
+				setTimeout(scrollToNow, 500);
+			});
+
+			// RSVP functionality (authenticated)
+			async function toggleRSVP(sessionId) {
+				if (!currentUser || !currentProfile) {
+					window.showAuthModal();
+					return;
+				}
+				
+				const btn = document.querySelector(`[data-session-id="${sessionId}"].rsvp-btn`);
+				const wasRSVPed = userRSVPs[sessionId] || false;
+				
+				try {
+					const { isRSVPed, error } = await authToggleRSVP(sessionId);
+					
+					if (error) {
+						console.error('RSVP error:', error);
+						alert('Failed to update RSVP. Please try again.');
+						return;
+					}
+					
+					// Update local state
+					userRSVPs[sessionId] = isRSVPed;
+					
+					// Update button
+					btn.classList.toggle('active', isRSVPed);
+					btn.textContent = isRSVPed ? '✓ Going' : 'Going';
+					
+					// Update attendee count
+					const attendeesEl = document.getElementById(`attendees-${sessionId}`);
+					if (attendeesEl) {
+						const currentCount = parseInt(attendeesEl.textContent.split(' ')[0]) || 0;
+						const newCount = isRSVPed ? currentCount + 1 : Math.max(0, currentCount - 1);
+						attendeesEl.textContent = `${newCount} going`;
+					}
+					
+					console.log(`${isRSVPed ? 'Added' : 'Removed'} RSVP for session ${sessionId}`);
+					
+					// Refresh My Schedule if user is on that tab
+					const myScheduleTab = document.querySelector('[data-tab="my-schedule"]');
+					if (myScheduleTab?.classList.contains('active')) {
+						loadMySchedule();
+					}
+					
+				} catch (error) {
+					console.error('RSVP error:', error);
+					alert('You must be logged in to RSVP to sessions.');
+				}
+			}
+
+			// Make functions globally available
+			window.toggleFilters = toggleFilters;
+			window.scrollToNow = scrollToNow;
+			window.toggleRSVP = toggleRSVP;
+		</script>
+	</body>
+</html>

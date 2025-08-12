@@ -1,0 +1,272 @@
+---
+import { supabase } from '../lib/supabase.js'
+
+// Fetch channels and messages from Supabase
+const { data: channels } = await supabase
+  .from('channels')
+  .select('*')
+  .order('id', { ascending: true })
+
+const { data: messages } = await supabase
+  .from('messages')
+  .select(`
+    *,
+    channels(name, display_name)
+  `)
+  .order('created_at', { ascending: true })
+
+// Group messages by channel
+const messagesByChannel = messages?.reduce((acc, message) => {
+  const channelName = message.channels?.name || 'general'
+  if (!acc[channelName]) {
+    acc[channelName] = []
+  }
+  acc[channelName].push(message)
+  return acc
+}, {}) || {}
+---
+
+<div class="chat-container">
+	<div class="channel-list">
+		<div class="channel-header">Channels:</div>
+		{(channels || [
+			{name: 'general', display_name: 'General'},
+			{name: 'keynote-qa', display_name: 'Keynote Q&A'}, 
+			{name: 'networking', display_name: 'Networking'},
+			{name: 'tech-talks', display_name: 'Tech Talks'}
+		]).map((channel, index) => (
+			<div class={`channel ${index === 0 ? 'active' : ''}`} data-channel={channel.name}>
+				# {channel.display_name.toLowerCase()}
+			</div>
+		))}
+	</div>
+
+	<div class="chat-messages" id="chat-messages">
+		{messagesByChannel['general']?.map(message => (
+			<div class="message">
+				<div class="message-sender">{message.sender}</div>
+				<div class="message-content" set:html={message.content}></div>
+				<div class="message-time">
+					{new Date(message.created_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}
+				</div>
+			</div>
+		)) || [
+			// Fallback messages if database isn't populated yet
+			<div class="message">
+				<div class="message-sender">sarah_chen</div>
+				<div class="message-content">Welcome everyone! Looking forward to a great day of talks and networking 🎉</div>
+				<div class="message-time">8:15 AM</div>
+			</div>,
+			<div class="message">
+				<div class="message-sender">marcus_dev</div>
+				<div class="message-content">Excited for the AI workshop this morning! Anyone else attending?</div>
+				<div class="message-time">8:22 AM</div>
+			</div>,
+			<div class="message">
+				<div class="message-sender">jessica_mobile</div>
+				<div class="message-content">@marcus_dev yes! I'll be there. Looking forward to the hands-on part</div>
+				<div class="message-time">8:24 AM</div>
+			</div>,
+			<div class="message">
+				<div class="message-sender">alex_startup</div>
+				<div class="message-content">Coffee in the lobby is excellent btw 👌</div>
+				<div class="message-time">8:28 AM</div>
+			</div>,
+			<div class="message">
+				<div class="message-sender">lisa_design</div>
+				<div class="message-content">Where's the best place to sit for the keynote? First time here</div>
+				<div class="message-time">8:35 AM</div>
+			</div>,
+			<div class="message">
+				<div class="message-sender">robert_cloud</div>
+				<div class="message-content">@lisa_design middle section has the best acoustics and screen visibility</div>
+				<div class="message-time">8:37 AM</div>
+			</div>,
+			<div class="message">
+				<div class="message-sender">ahmed_research</div>
+				<div class="message-content">Quick reminder: lunch networking starts at 12:30 on the garden terrace!</div>
+				<div class="message-time">8:45 AM</div>
+			</div>,
+			<div class="message">
+				<div class="message-sender">you</div>
+				<div class="message-content">Thanks for the tips everyone! This is my first tech conference</div>
+				<div class="message-time">8:52 AM</div>
+			</div>
+		]}
+	</div>
+</div>
+
+<div class="chat-input-area">
+	<input type="text" class="chat-input" placeholder="Type a message..." onkeypress="handleChatInput(event)">
+</div>
+
+<style>
+	.chat-container {
+		display: none;
+		padding-bottom: 60px;
+	}
+
+	.chat-container.active {
+		display: block;
+	}
+
+	.channel-list {
+		margin-bottom: 16px;
+		border: 1px solid black;
+		padding: 12px;
+	}
+
+	.channel-header {
+		font-weight: bold;
+		margin-bottom: 8px;
+	}
+
+	.channel {
+		padding: 4px 8px;
+		margin-bottom: 4px;
+		border: 1px solid black;
+		cursor: pointer;
+	}
+
+	.channel.active {
+		background: black;
+		color: white;
+	}
+
+	.chat-messages {
+		max-height: 60vh;
+		overflow-y: auto;
+		margin-bottom: 16px;
+		border: 1px solid black;
+		padding: 12px;
+	}
+
+	.message {
+		margin-bottom: 12px;
+		padding: 8px;
+		border: 1px solid black;
+	}
+
+	.message-sender {
+		font-weight: bold;
+		margin-bottom: 4px;
+	}
+
+	.message-time {
+		font-size: 0.8em;
+		margin-top: 4px;
+	}
+
+	.chat-input-area {
+		position: fixed;
+		bottom: 60px;
+		left: 16px;
+		right: 16px;
+		background: white;
+		border: 1px solid black;
+		padding: 8px;
+		display: none;
+	}
+
+	.chat-input-area.active {
+		display: block;
+	}
+
+	.chat-input {
+		width: 100%;
+		padding: 8px;
+		border: 1px solid black;
+		font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+		background: white;
+		color: black;
+	}
+</style>
+
+<script define:vars={{ messagesByChannel, channels }}>
+	// Channel switching functionality
+	document.querySelectorAll('.channel').forEach(channel => {
+		channel.addEventListener('click', function() {
+			document.querySelectorAll('.channel').forEach(c => c.classList.remove('active'));
+			this.classList.add('active');
+			
+			const channelName = this.dataset.channel;
+			const chatMessages = document.getElementById('chat-messages');
+			const messages = messagesByChannel[channelName] || [];
+			
+			chatMessages.innerHTML = messages.map(message => `
+				<div class="message">
+					<div class="message-sender">${message.sender}</div>
+					<div class="message-content">${message.content}</div>
+					<div class="message-time">${new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+				</div>
+			`).join('');
+			
+			chatMessages.scrollTop = chatMessages.scrollHeight;
+		});
+	});
+
+	// Chat input functionality (authenticated)
+	async function handleChatInput(event) {
+		if (event.key === 'Enter') {
+			const input = event.target;
+			const message = input.value.trim();
+			
+			if (!message) return;
+			
+			try {
+				// Import auth functions
+				const { sendMessage, isAuthenticated, getCurrentProfile } = await import('/src/lib/auth.js');
+				
+				if (!isAuthenticated()) {
+					alert('You must be logged in to send messages.');
+					window.showAuthModal?.();
+					return;
+				}
+				
+				const profile = getCurrentProfile();
+				if (!profile) {
+					alert('Profile not loaded. Please try again.');
+					return;
+				}
+				
+				// Get current channel (defaulting to general)
+				const activeChannel = document.querySelector('.channel.active');
+				const channelId = 1; // For now, always send to general channel
+				
+				// Send message to database
+				const { error } = await sendMessage(channelId, message);
+				
+				if (error) {
+					console.error('Error sending message:', error);
+					alert('Failed to send message. Please try again.');
+					return;
+				}
+				
+				// Add message to UI immediately for better UX
+				const chatMessages = document.getElementById('chat-messages');
+				const messageDiv = document.createElement('div');
+				messageDiv.className = 'message';
+				
+				const now = new Date();
+				const timeStr = now.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+				
+				messageDiv.innerHTML = `
+					<div class="message-sender">${profile.name}</div>
+					<div class="message-content">${message}</div>
+					<div class="message-time">${timeStr}</div>
+				`;
+				
+				chatMessages.appendChild(messageDiv);
+				chatMessages.scrollTop = chatMessages.scrollHeight;
+				input.value = '';
+				
+			} catch (error) {
+				console.error('Error handling chat input:', error);
+				alert('Failed to send message. Please try again.');
+			}
+		}
+	}
+
+	// Make function globally available
+	window.handleChatInput = handleChatInput;
+</script>

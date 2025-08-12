@@ -1,0 +1,246 @@
+---
+import { supabase } from '../lib/supabase.js'
+
+// This component will be populated by client-side JavaScript based on current user
+// Server-side rendering shows empty state, client-side will populate with user data
+
+// Schedule items will be loaded client-side based on authenticated user
+const scheduleItems = []
+
+// Format time function
+function formatTime(date) {
+  return date.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})
+}
+
+function formatTimeRange(startTime, endTime) {
+  const start = new Date(startTime)
+  const end = new Date(endTime)
+  return `${formatTime(start)} - ${formatTime(end)}`
+}
+---
+
+<div class="my-schedule-container">
+  <div class="schedule-header">
+    <h2>My Schedule</h2>
+    <div class="schedule-date">March 15, 2024</div>
+  </div>
+
+  <div class="schedule-content" id="schedule-content">
+    <div class="empty-schedule" id="empty-schedule">
+      <div class="empty-message">Please log in to see your personalized schedule.</div>
+      <div class="empty-suggestions">
+        <div>• RSVP to sessions from the Schedule tab</div>
+        <div>• Create community sessions with the + buttons</div>
+        <div>• Accept invitations when you receive them</div>
+      </div>
+    </div>
+    
+    <div class="timeline" id="schedule-timeline" style="display: none;">
+      <!-- Timeline items will be populated by JavaScript -->
+    </div>
+  </div>
+</div>
+
+<style>
+  .my-schedule-container {
+    display: none;
+    padding-bottom: 60px;
+  }
+
+  .my-schedule-container.active {
+    display: block;
+  }
+
+  .schedule-header {
+    margin-bottom: 20px;
+    border-bottom: 1px solid black;
+    padding-bottom: 12px;
+  }
+
+  .schedule-header h2 {
+    margin-bottom: 4px;
+  }
+
+  .schedule-date {
+    font-size: 0.9em;
+    color: #666;
+  }
+
+  .empty-schedule {
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .empty-message {
+    font-weight: bold;
+    margin-bottom: 16px;
+  }
+
+  .empty-suggestions {
+    text-align: left;
+    font-size: 0.9em;
+    line-height: 1.6;
+  }
+
+  .timeline {
+    position: relative;
+  }
+
+  .timeline-item {
+    display: flex;
+    margin-bottom: 20px;
+    padding: 12px;
+    border: 1px solid black;
+  }
+
+  .timeline-item.invitation {
+    border-left: 4px solid #ff6b35;
+  }
+
+  .timeline-item.hosting {
+    border-left: 4px solid #4ecdc4;
+  }
+
+  .timeline-item.rsvp {
+    border-left: 4px solid #45b7d1;
+  }
+
+  .timeline-time {
+    min-width: 90px;
+    font-weight: bold;
+    font-size: 0.9em;
+    margin-right: 12px;
+    text-align: right;
+  }
+
+  .timeline-content {
+    flex: 1;
+  }
+
+  .item-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px;
+  }
+
+  .item-title {
+    font-weight: bold;
+  }
+
+  .invitation-badge, .hosting-badge {
+    padding: 2px 6px;
+    font-size: 0.7em;
+    border: 1px solid black;
+  }
+
+  .invitation-badge {
+    background: #ff6b35;
+    color: white;
+  }
+
+  .hosting-badge {
+    background: #4ecdc4;
+    color: white;
+  }
+
+  .item-details {
+    margin-bottom: 12px;
+  }
+
+  .item-speaker {
+    font-size: 0.9em;
+    margin-bottom: 2px;
+  }
+
+  .item-location {
+    font-size: 0.8em;
+    color: #666;
+    margin-bottom: 4px;
+  }
+
+  .item-description {
+    font-size: 0.8em;
+    line-height: 1.3;
+    margin-top: 4px;
+  }
+
+  .item-actions {
+    margin-top: 8px;
+  }
+
+  .invitation-from {
+    font-size: 0.8em;
+    margin-bottom: 8px;
+    font-style: italic;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .action-buttons button {
+    padding: 4px 8px;
+    border: 1px solid black;
+    background: white;
+    cursor: pointer;
+    font-size: 0.8em;
+    font-family: inherit;
+  }
+
+  .accept-btn {
+    background: #4ecdc4;
+    color: white;
+  }
+
+  .decline-btn {
+    background: #ff6b35;
+    color: white;
+  }
+
+  .manage-btn, .chat-btn, .edit-btn, .cancel-btn {
+    background: white;
+  }
+
+  .action-buttons button:hover {
+    opacity: 0.8;
+  }
+</style>
+
+<script>
+  function respondToInvite(inviteId, response) {
+    alert(`${response === 'accepted' ? 'Accepting' : 'Declining'} invitation...`);
+    // TODO: Update invitation status in database
+  }
+
+  function manageSession(sessionId) {
+    alert(`Managing invites for session ${sessionId}...`);
+    // TODO: Show invite management modal
+  }
+
+  function openSessionChat(sessionId) {
+    alert(`Opening chat for session ${sessionId}...`);
+    // TODO: Switch to chat tab and open session-specific channel
+  }
+
+  function editSession(sessionId) {
+    alert(`Editing session ${sessionId}...`);
+    // TODO: Show session edit modal
+  }
+
+  function cancelRSVP(sessionId) {
+    if (confirm('Are you sure you want to cancel your RSVP?')) {
+      alert(`Canceling RSVP for session ${sessionId}...`);
+      // TODO: Remove RSVP from database
+    }
+  }
+
+  // Make functions globally available
+  window.respondToInvite = respondToInvite;
+  window.manageSession = manageSession;
+  window.openSessionChat = openSessionChat;
+  window.editSession = editSession;
+  window.cancelRSVP = cancelRSVP;
+</script>

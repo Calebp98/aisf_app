@@ -1,0 +1,391 @@
+---
+import { supabase } from '../lib/supabase.js'
+
+// Fetch users/profiles from Supabase
+const { data: users, error } = await supabase
+  .from('users')
+  .select('*')
+  .order('name', { ascending: true })
+
+if (error) {
+  console.error('Error fetching users:', error)
+}
+
+// Fallback profiles if database not set up
+const fallbackUsers = [
+  {
+    id: 1,
+    name: 'Dr. Sarah Chen',
+    title: 'CTO',
+    company: 'InnovateFirst',
+    bio: 'Leading digital transformation initiatives with a focus on AI and cloud technologies. 15+ years experience building scalable systems.',
+    linkedin_url: 'https://linkedin.com/in/sarahchen',
+    interests: ['AI', 'Cloud']
+  },
+  {
+    id: 2,
+    name: 'Marcus Rodriguez', 
+    title: 'Head of AI',
+    company: 'TechVentures',
+    bio: 'AI researcher turned entrepreneur. Building the next generation of intelligent applications.',
+    linkedin_url: 'https://linkedin.com/in/marcusrodriguez',
+    interests: ['AI', 'Startup']
+  },
+  {
+    id: 3,
+    name: 'Jessica Kim',
+    title: 'Senior Mobile Engineer', 
+    company: 'AppCorp',
+    bio: 'Mobile development expert specializing in cross-platform solutions. Passionate about creating beautiful, user-friendly mobile experiences.',
+    linkedin_url: 'https://linkedin.com/in/jessicakim',
+    interests: ['Mobile', 'UX']
+  },
+  {
+    id: 4,
+    name: 'Robert Chen',
+    title: 'Cloud Solutions Architect',
+    company: 'CloudTech', 
+    bio: 'Cloud infrastructure specialist helping companies scale from startup to enterprise.',
+    linkedin_url: 'https://linkedin.com/in/robertchen',
+    interests: ['Cloud', 'Networking']
+  },
+  {
+    id: 5,
+    name: 'Lisa Park',
+    title: 'Principal UX Designer',
+    company: 'DesignLab',
+    bio: 'UX design leader with a passion for human-centered design. Helping startups and enterprises create intuitive digital experiences.',
+    linkedin_url: 'https://linkedin.com/in/lisapark', 
+    interests: ['UX', 'Startup', 'Networking']
+  }
+]
+
+const profilesData = users?.length ? users : fallbackUsers
+const allInterests = ['All', 'AI', 'Mobile', 'Cloud', 'UX', 'Startup', 'Networking']
+---
+
+<div class="profiles-container">
+  <!-- Interest Filter -->
+  <div class="interest-filter">
+    <div class="filter-label">Filter by Interest:</div>
+    <div class="interest-buttons">
+      {allInterests.map(interest => (
+        <button class={`interest-btn ${interest === 'All' ? 'active' : ''}`} data-interest={interest}>
+          {interest}
+        </button>
+      ))}
+    </div>
+  </div>
+
+  <!-- Profiles List -->
+  <div class="profiles-list" id="profiles-list">
+    {profilesData.map(user => (
+      <div class="profile-card" data-interests={JSON.stringify(user.interests)} onclick={`showProfile(${user.id})`}>
+        <div class="profile-header">
+          <div class="profile-name">{user.name}</div>
+          <div class="profile-title">{user.title}</div>
+          <div class="profile-company">{user.company}</div>
+        </div>
+        <div class="profile-interests">
+          {user.interests?.map(interest => (
+            <span class="interest-tag">{interest}</span>
+          ))}
+        </div>
+        <div class="profile-bio-preview">
+          {user.bio?.substring(0, 100)}{user.bio?.length > 100 ? '...' : ''}
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <!-- Profile Detail Modal -->
+  <div class="profile-detail" id="profile-detail" style="display: none;">
+    <div class="profile-detail-header">
+      <button class="back-btn" onclick="hideProfile()">← Back</button>
+      <h2 id="detail-name"></h2>
+    </div>
+    
+    <div class="profile-detail-content">
+      <div class="detail-info">
+        <div id="detail-title-company"></div>
+        <div class="detail-bio" id="detail-bio"></div>
+        
+        <div class="detail-interests">
+          <div class="interests-label">Interests:</div>
+          <div id="detail-interests"></div>
+        </div>
+        
+        <div class="detail-contact">
+          <div class="contact-label">Contact:</div>
+          <div class="contact-links">
+            <a id="detail-linkedin" href="#" target="_blank">LinkedIn</a>
+            <a id="detail-email" href="#">Email</a>
+          </div>
+        </div>
+      </div>
+      
+      <div class="profile-actions">
+        <button class="chat-btn" onclick="startChat()">💬 Start Chat</button>
+        <button class="invite-btn" onclick="inviteToSession()">📅 Invite to Session</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .profiles-container {
+    display: none;
+    padding-bottom: 60px;
+  }
+
+  .profiles-container.active {
+    display: block;
+  }
+
+  .interest-filter {
+    margin-bottom: 16px;
+    border-bottom: 1px solid black;
+    padding-bottom: 12px;
+  }
+
+  .filter-label {
+    font-weight: bold;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+  }
+
+  .interest-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .interest-btn {
+    padding: 4px 8px;
+    border: 1px solid black;
+    background: white;
+    cursor: pointer;
+    font-size: 0.8em;
+    font-family: inherit;
+  }
+
+  .interest-btn.active {
+    background: black;
+    color: white;
+  }
+
+  .profiles-list {
+    margin-bottom: 16px;
+  }
+
+  .profile-card {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid black;
+    cursor: pointer;
+  }
+
+  .profile-card:hover {
+    background: #f8f8f8;
+  }
+
+  .profile-header {
+    margin-bottom: 8px;
+  }
+
+  .profile-name {
+    font-weight: bold;
+    margin-bottom: 2px;
+  }
+
+  .profile-title {
+    font-size: 0.9em;
+    margin-bottom: 2px;
+  }
+
+  .profile-company {
+    font-size: 0.8em;
+    color: #666;
+  }
+
+  .profile-interests {
+    margin-bottom: 8px;
+  }
+
+  .interest-tag {
+    display: inline-block;
+    padding: 1px 4px;
+    border: 1px solid black;
+    font-size: 0.7em;
+    margin-right: 4px;
+    margin-bottom: 2px;
+  }
+
+  .profile-bio-preview {
+    font-size: 0.8em;
+    line-height: 1.3;
+  }
+
+  .profile-detail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 60px;
+    background: white;
+    z-index: 100;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  .profile-detail-header {
+    margin-bottom: 16px;
+    border-bottom: 1px solid black;
+    padding-bottom: 12px;
+  }
+
+  .back-btn {
+    background: none;
+    border: 1px solid black;
+    padding: 4px 8px;
+    cursor: pointer;
+    margin-bottom: 8px;
+    font-family: inherit;
+  }
+
+  .profile-detail-content {
+    margin-bottom: 16px;
+  }
+
+  .detail-info {
+    margin-bottom: 20px;
+  }
+
+  .detail-bio {
+    margin: 12px 0;
+    line-height: 1.4;
+  }
+
+  .detail-interests {
+    margin: 12px 0;
+  }
+
+  .interests-label {
+    font-weight: bold;
+    margin-bottom: 4px;
+    font-size: 0.9em;
+  }
+
+  .detail-contact {
+    margin: 12px 0;
+  }
+
+  .contact-label {
+    font-weight: bold;
+    margin-bottom: 4px;
+    font-size: 0.9em;
+  }
+
+  .contact-links {
+    display: flex;
+    gap: 16px;
+  }
+
+  .contact-links a {
+    color: black;
+    text-decoration: underline;
+  }
+
+  .profile-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .chat-btn, .invite-btn {
+    padding: 8px 12px;
+    border: 1px solid black;
+    background: white;
+    cursor: pointer;
+    font-family: inherit;
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .chat-btn:hover, .invite-btn:hover {
+    background: #f0f0f0;
+  }
+</style>
+
+<script define:vars={{ profilesData }}>
+  let currentProfile = null;
+
+  // Interest filtering
+  document.querySelectorAll('.interest-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      // Update active button
+      document.querySelectorAll('.interest-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      
+      const selectedInterest = this.dataset.interest;
+      
+      // Filter profiles
+      document.querySelectorAll('.profile-card').forEach(card => {
+        const profileInterests = JSON.parse(card.dataset.interests || '[]');
+        const shouldShow = selectedInterest === 'All' || profileInterests.includes(selectedInterest);
+        card.style.display = shouldShow ? 'block' : 'none';
+      });
+    });
+  });
+
+  // Profile detail functions
+  function showProfile(userId) {
+    const profile = profilesData.find(p => p.id === userId);
+    if (!profile) return;
+    
+    currentProfile = profile;
+    
+    // Populate detail view
+    document.getElementById('detail-name').textContent = profile.name;
+    document.getElementById('detail-title-company').textContent = `${profile.title} at ${profile.company}`;
+    document.getElementById('detail-bio').textContent = profile.bio || 'No bio available';
+    
+    // Set interests
+    const interestsContainer = document.getElementById('detail-interests');
+    interestsContainer.innerHTML = (profile.interests || []).map(interest => 
+      `<span class="interest-tag">${interest}</span>`
+    ).join('');
+    
+    // Set contact links
+    document.getElementById('detail-linkedin').href = profile.linkedin_url || '#';
+    document.getElementById('detail-email').href = `mailto:${profile.email || ''}`;
+    
+    // Show detail view
+    document.getElementById('profile-detail').style.display = 'block';
+  }
+
+  function hideProfile() {
+    document.getElementById('profile-detail').style.display = 'none';
+    currentProfile = null;
+  }
+
+  function startChat() {
+    if (currentProfile) {
+      alert(`Starting chat with ${currentProfile.name}...`);
+      // TODO: Implement actual chat functionality
+    }
+  }
+
+  function inviteToSession() {
+    if (currentProfile) {
+      alert(`Inviting ${currentProfile.name} to a session...`);
+      // TODO: Implement session invitation modal
+    }
+  }
+
+  // Make functions globally available
+  window.showProfile = showProfile;
+  window.hideProfile = hideProfile;
+  window.startChat = startChat;
+  window.inviteToSession = inviteToSession;
+</script>
